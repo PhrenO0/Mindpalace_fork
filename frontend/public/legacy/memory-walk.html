@@ -33,6 +33,10 @@
     .kicker{color:var(--gold);font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;}
     /* 상단 타이틀 */
     .top{top:16px;left:16px;width:min(320px,calc(100vw - 32px));padding:13px 16px;}
+    .top .backbtn{display:inline-flex;align-items:center;gap:5px;margin-bottom:9px;border:1px solid var(--line);
+      border-radius:10px;background:rgba(255,255,255,.05);color:var(--text);font:inherit;font-weight:800;
+      font-size:12px;padding:7px 12px;cursor:pointer;transition:.15s;}
+    .top .backbtn:hover{border-color:var(--accent);background:rgba(169,216,200,.16);}
     .top h1{margin:6px 0 5px;font-size:clamp(15px,2vw,19px);font-weight:800;letter-spacing:-.01em;}
     .top p{margin:0;color:var(--muted);font-size:12px;line-height:1.55;}
     /* 엔티티 카드(우측) */
@@ -108,6 +112,7 @@
 <body>
   <div id="scene"></div>
   <section class="panel top">
+    <button class="backbtn" id="backBtn">← 광화문 지도로</button>
     <div class="kicker">Memory Palace · 1인칭 워크스루</div>
     <h1 id="palaceTitle">기억 궁전</h1>
     <p id="roomName">방 로드 중…</p>
@@ -360,6 +365,15 @@
         const ey = Math.min(Math.max(p.y + 0.3, floor + 1.2), floor + 1.95);  // 눈높이 근처로 클램프
         return { pos: p, label: a.label, name: a.name, entity: entOf.get(a) || null, number: i+1, eye: p.clone().setY(ey) };
       });
+      // 겹치는 마커(XZ가 0.35m 내) 세로로 층층이 쌓아 번호를 알아보기 쉽게(식탁 위 화분·꽃병 등).
+      for (let i = 0; i < route.length; i++) {
+        let level = 0;
+        for (let j = 0; j < i; j++)
+          if (Math.hypot(route[i].pos.x - route[j].pos.x, route[i].pos.z - route[j].pos.z) < 0.35)
+            level = Math.max(level, (route[j]._stack || 0) + 1);
+        route[i]._stack = level;
+        if (level > 0) route[i].eye = route[i].eye.clone().setY(Math.min(floor + 2.3, route[i].eye.y + level * 0.3));
+      }
       window.__mw = { route, anchors, ordered };   // 디버그
       $("listBtn").style.display = "inline-flex"; $("listCount").textContent = anchors.length; buildObjectList();
       buildMarkers(); buildRouteLine(spawn); buildRelations();
@@ -523,6 +537,11 @@
     $("nextBtn").onclick = () => goTo(Math.min(route.length-1, activeIdx+1));
     $("prevBtn").onclick = () => goTo(Math.max(0, activeIdx-1));
     $("tourBtn").onclick = () => goTo(0);
+    // 광화문 지도로 복귀: 지도에서 들어왔으면 그 페이지(키 포함)로, 아니면 지도 페이지로.
+    $("backBtn").onclick = () => {
+      if (history.length > 1 && document.referrer) history.back();
+      else location.href = "vworld_3d_map_live.html";
+    };
 
     // 마커 클릭 → 그 지점
     renderer.domElement.addEventListener("pointerup", (ev) => {
