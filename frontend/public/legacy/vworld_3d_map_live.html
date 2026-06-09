@@ -72,22 +72,12 @@
 
       .scene-vignette {
         z-index: 2;
-        /* 비네팅 완화 — 시야 갑갑함 제거(측면·하단 어둠 대폭 축소) */
-        background:
-          linear-gradient(
-            90deg,
-            rgba(4, 6, 7, 0.2),
-            rgba(4, 6, 7, 0) 16%,
-            rgba(4, 6, 7, 0) 84%,
-            rgba(4, 6, 7, 0.2)
-          ),
-          linear-gradient(
-            0deg,
-            rgba(4, 6, 7, 0.55) 0%,
-            rgba(4, 6, 7, 0.22) 11%,
-            rgba(4, 6, 7, 0) 28%,
-            rgba(4, 6, 7, 0) 100%
-          );
+        /* 아주 약한 비네팅 — 가장자리만 살짝 어둡게 해 중앙 집중(시야 방해 X) */
+        background: radial-gradient(
+          128% 122% at 50% 46%,
+          transparent 62%,
+          rgba(4, 6, 7, 0.26) 100%
+        );
       }
 
       .focus-mask {
@@ -175,20 +165,17 @@
         -webkit-backdrop-filter: blur(8px);
       }
 
-      /* 루트 도트 = 색깔 동그라미 가로 연결. 하단 우측(미니맵 위)에 작게. */
+      /* 루트 도트 = 색깔 동그라미 가로 연결. 하단 네비 바 안 우측 상단에 작게. */
       .route-rail {
-        position: absolute;
-        left: auto;
-        right: 14px;
-        top: auto;
-        bottom: 196px;
-        width: auto;
-        transform: none;
-        padding: 6px 12px;
+        display: none; /* 상단 레일은 숨김(routeCount/Summary만 JS용으로 유지) */
       }
-
-      .route-head {
-        display: none;
+      .entry-dock .anchor-tabs {
+        position: absolute;
+        top: 7px;
+        right: 14px;
+      }
+      .entry-dock {
+        padding-top: 30px; /* 우측 상단 도트 공간 */
       }
 
       .route-title {
@@ -299,20 +286,47 @@
         color: var(--accent);
       }
 
-      /* 우하단 미니맵 — 상공에서 본 한옥 위치/방향(최소 정보) */
+      /* 우하단 미니맵 — Leaflet 2D 지도(실시간 길거리·현위치) */
       .minimap {
         position: absolute;
         right: 14px;
         bottom: 14px;
-        width: 148px;
-        height: 172px;
+        width: 176px;
+        height: 176px;
         z-index: 4;
         border: 1px solid var(--line);
         border-radius: 12px;
-        background: rgba(8, 12, 11, 0.62);
+        overflow: hidden;
         box-shadow: var(--shadow);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
+        background: #0c0f0d;
+      }
+      .minimap .leaflet-container {
+        width: 100%;
+        height: 100%;
+        background: #0c0f0d;
+        font: inherit;
+      }
+      .minimap::after {
+        content: "N";
+        position: absolute;
+        top: 4px;
+        left: 7px;
+        z-index: 500;
+        color: rgba(244, 241, 234, 0.85);
+        font-size: 10px;
+        font-weight: 900;
+        text-shadow: 0 1px 3px #000;
+        pointer-events: none;
+      }
+      /* 현위치 화살표(헤딩 방향) */
+      .mini-arrow-i {
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 14px solid #dcc079;
+        filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.6));
+        transform-origin: 50% 64%;
       }
 
       .building-layer {
@@ -1061,6 +1075,18 @@
         }
       })();
     </script>
+    <!-- 미니맵용 Leaflet(오픈소스 2D 지도) -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
   </head>
   <body class="focus-mode">
     <div id="vmap"></div>
@@ -1080,7 +1106,6 @@
           </div>
           <div class="route-count" id="routeCount">1 / 5</div>
         </div>
-        <div class="anchor-tabs" id="anchorTabs"></div>
       </section>
 
       <section
@@ -1148,6 +1173,7 @@
       </aside>
 
       <section class="entry-dock" aria-label="건물 입장">
+        <div class="anchor-tabs" id="anchorTabs"></div>
         <div>
           <div class="question" id="entryQuestion">현재 건물로 들어갈 준비</div>
           <p id="spatialCue">
@@ -1165,7 +1191,7 @@
         </div>
       </section>
 
-      <canvas class="minimap" id="minimap" width="148" height="172" aria-label="미니맵(상공에서 본 한옥 위치)"></canvas>
+      <div class="minimap" id="minimap" aria-label="미니맵(상공 2D 지도·실시간 현위치)"></div>
 
       <div class="status" id="status">VWorld 3D API 준비 중...</div>
     </main>
@@ -1193,13 +1219,13 @@
 
     <script>
       const STORAGE_KEY = "VWORLD_API_KEY";
-      // 첫 화면 오버뷰 — 5개 한옥(남↔북 약 830m)을 남쪽·상공에서 비스듬히 내려다봄.
+      // 첫 화면 오버뷰 — 건물 가까이 앞으로 당겨, 남쪽·상공에서 비스듬히 내려다봄.
       const GWANGHWAMUN = {
         lon: 126.97689,
-        lat: 37.56930,
-        height: 780,
+        lat: 37.57015,
+        height: 690,
         heading: 0,
-        pitch: -31,
+        pitch: -32,
       };
 
       const PALACE_ANCHORS = [
@@ -1880,7 +1906,7 @@
         if (!layer) return;
         const rect = qs("vmap").getBoundingClientRect();
         if (!rect.width || !rect.height) return;
-        drawMinimap();   // 실시간 미니맵(카메라 위치/방향 동기)
+        updateMinimap();   // 실시간 미니맵(카메라 위치/방향 동기)
 
         // 매 프레임 카메라 위치로 가장 가까운 앵커를 계산
         // navLocked(programmatic 이동 중)이면 activeIndex 그대로 사용
@@ -1974,79 +2000,100 @@
         qs("labelBtn").classList.toggle("active", labelsHidden);
         qs("labelBtn").textContent = labelsHidden ? "라벨 보기" : "라벨 숨김";
         renderBuildings();
-        drawMinimap();
+        updateMinimap();
       }
 
       // 우하단 미니맵 — 상공뷰. 한옥 위치/경로 + "내 카메라 현위치·바라보는 방향"(실시간, 북=위).
-      function drawMinimap() {
-        const cv = qs("minimap");
-        if (!cv) return;
-        const g = cv.getContext("2d");
-        const W = cv.width, H = cv.height, pad = 22;
-        g.clearRect(0, 0, W, H);
-        // 실시간 카메라 지상 위치/방향
-        let cam = null;
+      // ── 미니맵: Leaflet 2D 지도(VWorld Base 타일) — 카메라 현위치/방향 실시간 동기 ──
+      let miniMap = null, miniMarker = null;
+      function getMiniKey() {
+        return (
+          window.__VWORLD_BOOT_KEY__ ||
+          new URLSearchParams(location.search).get("key") ||
+          localStorage.getItem(STORAGE_KEY) ||
+          ""
+        ).trim();
+      }
+      function initMinimap() {
+        if (miniMap || !window.L || !qs("minimap")) return;
+        const key = getMiniKey();
+        miniMap = L.map("minimap", {
+          zoomControl: false, attributionControl: false, dragging: false,
+          scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false,
+          keyboard: false, touchZoom: false, zoomSnap: 0,
+        }).setView([37.575, 126.977], 16);
+        if (key) {
+          L.tileLayer(
+            `https://api.vworld.kr/req/wmts/1.0.0/${key}/Base/{z}/{y}/{x}.png`,
+            { minZoom: 12, maxZoom: 19 },
+          ).addTo(miniMap);
+        }
+        PALACE_BUILDINGS.forEach((b, i) => {
+          const color = (PALACE_ANCHORS[i] && PALACE_ANCHORS[i].color) || "#a9d8c8";
+          L.circleMarker([b.lat, b.lon], {
+            radius: 4, color: "#0c0f0d", weight: 1.5, fillColor: color, fillOpacity: 0.95,
+          }).addTo(miniMap);
+        });
+        miniMarker = L.marker([37.575, 126.977], {
+          icon: L.divIcon({
+            className: "mini-arrow",
+            html: '<div class="mini-arrow-i"></div>',
+            iconSize: [16, 16], iconAnchor: [8, 9],
+          }),
+          interactive: false, keyboard: false,
+        }).addTo(miniMap);
+        setTimeout(() => miniMap && miniMap.invalidateSize(), 80);
+      }
+      function updateMinimap() {
+        if (!miniMap) initMinimap();
+        if (!miniMap) return;
         try {
           const viewer = getVWorldViewer();
           if (viewer && viewer.camera && viewer.camera.positionCartographic) {
             const c = viewer.camera.positionCartographic;
-            cam = {
-              lon: engine.Math.toDegrees(c.longitude),
-              lat: engine.Math.toDegrees(c.latitude),
-              heading: viewer.camera.heading || 0,
-            };
+            const lat = engine.Math.toDegrees(c.latitude);
+            const lon = engine.Math.toDegrees(c.longitude);
+            miniMap.setView([lat, lon], miniMap.getZoom(), { animate: false });
+            if (miniMarker) {
+              miniMarker.setLatLng([lat, lon]);
+              const el = miniMarker.getElement();
+              const inner = el && el.querySelector(".mini-arrow-i");
+              if (inner)
+                inner.style.transform = `rotate(${((viewer.camera.heading || 0) * 180) / Math.PI}deg)`;
+            }
           }
         } catch (e) {}
-        // 경계(건물 + 카메라 포함) — 카메라가 밖이어도 보이게
-        const lons = PALACE_BUILDINGS.map((b) => b.lon);
-        const lats = PALACE_BUILDINGS.map((b) => b.lat);
-        if (cam) { lons.push(cam.lon); lats.push(cam.lat); }
-        const minLon = Math.min(...lons), maxLon = Math.max(...lons);
-        const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-        const spanLon = Math.max(maxLon - minLon, 1e-4);
-        const spanLat = Math.max(maxLat - minLat, 1e-4);
-        const proj = (lon, lat) => ({
-          x: pad + ((lon - minLon) / spanLon) * (W - 2 * pad),
-          y: pad + (1 - (lat - minLat) / spanLat) * (H - 2 * pad), // 북=위
-        });
-        g.fillStyle = "rgba(244,241,234,0.5)";
-        g.font = "9px 'Malgun Gothic',sans-serif";
-        g.textAlign = "center";
-        g.fillText("N ↑", W / 2, 13);
-        // 경로 선
-        g.strokeStyle = "rgba(195,229,220,0.22)";
-        g.lineWidth = 2;
-        g.beginPath();
-        PALACE_BUILDINGS.forEach((b, i) => {
-          const p = proj(b.lon, b.lat);
-          i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y);
-        });
-        g.stroke();
-        // 건물 점(현재 단계 강조)
-        PALACE_BUILDINGS.forEach((b, i) => {
-          const p = proj(b.lon, b.lat);
-          const sel = i === activeIndex;
-          const color = (PALACE_ANCHORS[i] && PALACE_ANCHORS[i].color) || "#a9d8c8";
-          g.beginPath();
-          g.arc(p.x, p.y, sel ? 5 : 3.5, 0, 7);
-          g.fillStyle = sel ? color : "rgba(255,255,255,0.5)";
-          g.fill();
-        });
-        // 내 카메라(현위치) — 골드 화살표가 바라보는 방향을 가리킴
-        if (cam) {
-          const p = proj(cam.lon, cam.lat);
-          g.fillStyle = "rgba(220,192,121,0.22)";
-          g.beginPath(); g.arc(p.x, p.y, 10, 0, 7); g.fill();
-          g.save();
-          g.translate(p.x, p.y);
-          g.rotate(cam.heading); // Cesium heading: 북=0, 시계방향 → 캔버스 회전과 일치
-          g.fillStyle = "#dcc079";
-          g.beginPath();
-          g.moveTo(0, -8); g.lineTo(5, 5); g.lineTo(0, 2); g.lineTo(-5, 5);
-          g.closePath(); g.fill();
-          g.restore();
-        }
       }
+
+      // ── WASD 이동(지도 카메라) — 드래그=시점/회전(VWorld 기본)과 함께 ──
+      const keyMove = {};
+      window.addEventListener("keydown", (e) => {
+        const k = e.key.toLowerCase();
+        if (["w", "a", "s", "d"].includes(k)) { keyMove[k] = true; e.preventDefault(); }
+      });
+      window.addEventListener("keyup", (e) => { keyMove[e.key.toLowerCase()] = false; });
+      window.addEventListener("blur", () => { for (const k in keyMove) keyMove[k] = false; });
+      function wasdTick() {
+        try {
+          const viewer = getVWorldViewer();
+          if (viewer && viewer.camera) {
+            const cam = viewer.camera;
+            const h = cam.positionCartographic ? cam.positionCartographic.height : 500;
+            const step = Math.max(2.5, h * 0.014); // 고도 비례 속도
+            let moved = false;
+            if (keyMove.w) { cam.moveForward(step); moved = true; }
+            if (keyMove.s) { cam.moveBackward(step); moved = true; }
+            if (keyMove.a) { cam.moveLeft(step); moved = true; }
+            if (keyMove.d) { cam.moveRight(step); moved = true; }
+            if (moved) {
+              if (typeof syncBuildingPositions === "function") syncBuildingPositions();
+              if (typeof requestRender === "function") requestRender();
+            }
+          }
+        } catch (e) {}
+        requestAnimationFrame(wasdTick);
+      }
+      requestAnimationFrame(wasdTick);
 
       function initBuildings() {
         const layer = qs("buildingLayer");
