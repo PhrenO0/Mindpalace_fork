@@ -1247,13 +1247,13 @@
 
     <script>
       const STORAGE_KEY = "VWORLD_API_KEY";
-      // 첫 화면 오버뷰 — 건물 가까이 앞으로 당겨, 남쪽·상공에서 비스듬히 내려다봄.
+      // 첫 화면 — 세종대로 남쪽 입구에서 북향, 양옆 빌딩이 크게 보이는 몰입 위치.
       const GWANGHWAMUN = {
         lon: 126.97689,
-        lat: 37.57110,
-        height: 640,
+        lat: 37.56980,
+        height: 360,
         heading: 0,
-        pitch: -33,
+        pitch: -20,
       };
 
       const PALACE_ANCHORS = [
@@ -2077,25 +2077,30 @@
           }),
           interactive: false, keyboard: false,
         }).addTo(miniMap);
-        setTimeout(() => miniMap && miniMap.invalidateSize(), 80);
+        // 루트 전체가 늘 보이게 고정 오버뷰(5핀 항상 표시) + 시작 위치 여유
+        setTimeout(() => {
+          if (!miniMap) return;
+          miniMap.invalidateSize();
+          const bounds = L.latLngBounds(PALACE_BUILDINGS.map((b) => [b.lat, b.lon]));
+          miniMap.fitBounds(bounds.pad(0.7));
+        }, 100);
       }
+      // 미니맵은 고정(루트 오버뷰), 내 화살표만 실시간으로 이동/회전.
       function updateMinimap() {
         if (!miniMap) initMinimap();
-        if (!miniMap) return;
+        if (!miniMap || !miniMarker) return;
         try {
           const viewer = getVWorldViewer();
           if (viewer && viewer.camera && viewer.camera.positionCartographic) {
             const c = viewer.camera.positionCartographic;
-            const lat = engine.Math.toDegrees(c.latitude);
-            const lon = engine.Math.toDegrees(c.longitude);
-            miniMap.setView([lat, lon], miniMap.getZoom(), { animate: false });
-            if (miniMarker) {
-              miniMarker.setLatLng([lat, lon]);
-              const el = miniMarker.getElement();
-              const inner = el && el.querySelector(".mini-arrow-i");
-              if (inner)
-                inner.style.transform = `rotate(${((viewer.camera.heading || 0) * 180) / Math.PI}deg)`;
-            }
+            miniMarker.setLatLng([
+              (c.latitude * 180) / Math.PI, // 라디안→도(engine 미접근 → 수동 변환)
+              (c.longitude * 180) / Math.PI,
+            ]);
+            const el = miniMarker.getElement();
+            const inner = el && el.querySelector(".mini-arrow-i");
+            if (inner)
+              inner.style.transform = `rotate(${((viewer.camera.heading || 0) * 180) / Math.PI}deg)`;
           }
         } catch (e) {}
       }
