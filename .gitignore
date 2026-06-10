@@ -15,3 +15,6 @@ backend/.env
 # Generated uploads/logs
 backend/uploads/
 *.log
+
+# 대용량 GLB(>100MB, GitHub 제한) — 로컬 전용
+frontend/public/legacy/public/assets/rooms/cozy.glb

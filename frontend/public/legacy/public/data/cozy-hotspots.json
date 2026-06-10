@@ -1,0 +1,20 @@
+{
+  "roomId": "cozy-boxcenter",
+  "title": "cozy 모던 리빙룸 — 박스중심 스캔(시점계획 + 하나의 사물=하나의 마커)",
+  "generatedBy": "personal-room-scanner-3d (view-planning + box-center raycast + node merge)",
+  "hotspots": [
+    { "slot": 1,  "detectedClass": "chair",        "object": "의자",      "confidence": 0.77, "markerPosition": [0.905, 0.428, 0.336] },
+    { "slot": 2,  "detectedClass": "potted plant", "object": "화분",      "confidence": 0.87, "markerPosition": [3.067, 1.314, -2.416] },
+    { "slot": 3,  "detectedClass": "dining table", "object": "식탁/테이블", "confidence": 0.86, "markerPosition": [-0.414, 0.063, 0.320] },
+    { "slot": 4,  "detectedClass": "bowl",         "object": "그릇",      "confidence": 0.86, "markerPosition": [-0.447, 0.672, 0.030] },
+    { "slot": 5,  "detectedClass": "rug",          "object": "러그",      "confidence": 0.79, "markerPosition": [-0.281, 0.107, -0.648] },
+    { "slot": 6,  "detectedClass": "vase",         "object": "꽃병",      "confidence": 0.75, "markerPosition": [3.191, 0.970, -2.398] },
+    { "slot": 7,  "detectedClass": "sofa",         "object": "소파",      "confidence": 0.81, "markerPosition": [1.103, 0.460, 0.877] },
+    { "slot": 8,  "detectedClass": "tableware",    "object": "식기",      "confidence": 0.50, "markerPosition": [-0.268, 0.657, -0.007] },
+    { "slot": 9,  "detectedClass": "pillow",       "object": "쿠션",      "confidence": 0.56, "markerPosition": [0.517, 0.636, 1.984] },
+    { "slot": 10, "detectedClass": "bed",          "object": "침대",      "confidence": 0.69, "markerPosition": [-1.640, 0.913, 1.520] },
+    { "slot": 11, "detectedClass": "carpet",       "object": "카펫",      "confidence": 0.75, "markerPosition": [0.733, 0.066, -1.207] },
+    { "slot": 12, "detectedClass": "toilet",       "object": "변기",      "confidence": 0.88, "markerPosition": [2.884, 1.643, 1.918] },
+    { "slot": 13, "detectedClass": "lamp",         "object": "조명",      "confidence": 0.80, "markerPosition": [2.449, 1.685, 2.519] }
+  ]
+}
