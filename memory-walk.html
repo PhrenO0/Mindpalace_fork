@@ -80,8 +80,36 @@
     .hint{position:fixed;left:16px;bottom:16px;color:var(--muted);font-size:10.5px;line-height:1.5;
           background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:7px 11px;max-width:min(330px,calc(100vw - 32px));}
     .hint b{color:var(--accent);}
-    /* 인식 가구 목록(팝업) */
-    .fab{position:fixed;right:16px;bottom:78px;padding:9px 14px;border-radius:12px;color:var(--text);
+    /* 랜드마크 입장 인트로 — 현판(한자)·방 이름이 떠올랐다 사라진다 */
+    .lmintro{position:fixed;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;
+             pointer-events:none;transition:opacity 1s ease;}
+    .lmintro .hanja{font-size:clamp(64px,14vw,150px);font-weight:900;color:rgba(244,241,234,.94);
+                    letter-spacing:.1em;text-shadow:0 10px 44px rgba(0,0,0,.65);
+                    font-family:"Batang","Nanum Myeongjo",serif;}
+    .lmintro .nm{margin-top:12px;font-size:clamp(18px,3vw,27px);font-weight:800;color:var(--gold);}
+    .lmintro .ln{margin-top:7px;font-size:13.5px;color:rgba(244,241,234,.72);}
+    /* 우하단 2D 평면도 미니맵(나 중심) — 클릭하면 편집 대시보드 */
+    .mini{position:fixed;right:16px;bottom:16px;width:176px;height:176px;border-radius:12px;
+          border:1px solid var(--line);background:rgba(8,12,11,.7);box-shadow:0 14px 38px rgba(0,0,0,.5);
+          cursor:pointer;z-index:10;display:none;}
+    .mini:hover{border-color:var(--accent);}
+    /* 편집 대시보드 */
+    .esheet{width:min(640px,calc(100vw - 28px));max-height:92vh;padding:0;overflow:hidden;display:flex;flex-direction:column;}
+    .ehead{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 8px;}
+    .ebody{padding:6px 16px 14px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
+    #editCv{width:100%;border-radius:12px;border:1px solid var(--line);background:#0b0f0d;cursor:crosshair;touch-action:none;}
+    .erow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .erow input{flex:1;min-width:140px;height:36px;border-radius:9px;border:1px solid var(--line);
+                background:rgba(255,255,255,.05);color:var(--text);font:inherit;font-size:13px;padding:0 11px;}
+    .erow .btn{border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.05);color:var(--text);
+               font:inherit;font-weight:800;font-size:12.5px;padding:9px 13px;cursor:pointer;}
+    .erow .btn:hover{border-color:var(--accent);}
+    .erow .btn.save{background:linear-gradient(180deg,var(--accent),var(--accent2));color:#091210;border-color:transparent;}
+    .erow .btn.danger:hover{border-color:#e08c8c;color:#e08c8c;}
+    .enote{color:var(--muted);font-size:11.5px;line-height:1.55;margin:0;}
+    .enote b{color:var(--accent);}
+    /* 인식 가구 목록(팝업) — 미니맵 위로 */
+    .fab{position:fixed;right:16px;bottom:206px;padding:9px 14px;border-radius:12px;color:var(--text);
          font:inherit;font-weight:800;font-size:12.5px;cursor:pointer;display:none;align-items:center;gap:6px;}
     .fab:hover{border-color:var(--accent);}
     .fab #listCount{color:var(--accent);}
@@ -93,14 +121,14 @@
     .mx{background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;line-height:1;}
     .mx:hover{color:var(--text);}
     #mlist{overflow:auto;padding:4px 14px 16px;}
-    .mrow{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;
+    .mrow{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;
           padding:9px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px;cursor:pointer;transition:.12s;}
     .mrow:hover{border-color:var(--accent);background:rgba(169,216,200,.1);}
     .mrow .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
     .mrow .fn{font-weight:700;font-size:13.5px;}
     .mrow .ent{font-size:11.5px;color:var(--gold);font-weight:700;}
     .mrow .ent.none{color:var(--muted);font-weight:400;}
-    @media(max-width:620px){ .top,.card{width:calc(100vw - 24px);} .card{top:auto;bottom:126px;left:12px;right:12px;} .hint{display:none;} .fab{bottom:84px;} }
+    @media(max-width:620px){ .top,.card{width:calc(100vw - 24px);} .card{top:auto;bottom:126px;left:12px;right:12px;} .hint{display:none;} .fab{bottom:84px;} .mini{display:none !important;} }
   </style>
   <script type="importmap">
     { "imports":{
@@ -113,6 +141,7 @@
   <div id="scene"></div>
   <section class="panel top">
     <button class="backbtn" id="backBtn">← 광화문 지도로</button>
+    <button class="backbtn" id="nextRoomBtn" style="display:none;margin-left:6px">다음 방 ⏭</button>
     <div class="kicker">Memory Palace · 1인칭 워크스루</div>
     <h1 id="palaceTitle">기억 궁전</h1>
     <p id="roomName">방 로드 중…</p>
@@ -133,14 +162,46 @@
   <div class="status" id="status">로드 중…</div>
 
   <nav class="panel nav" id="nav" style="display:none">
+    <button class="btn ghost" id="homeBtn" title="모든 핫스팟이 잘 보이는 전체 조망">⌂ 홈</button>
     <button class="btn ghost" id="prevBtn">← 이전</button>
     <div class="dots" id="dots"></div>
     <button class="btn primary" id="nextBtn">다음 →</button>
+    <button class="btn ghost" id="addBtn" title="화면에서 사물을 클릭해 그 자리에 핫스팟 추가">➕ 지점</button>
+    <button class="btn ghost" id="moveBtn" title="선택한 핫스팟을 화면에서 클릭한 자리로 이동">✥ 이동</button>
+    <button class="btn ghost" id="undoBtn" title="마지막 변경(이동·추가·삭제·순서)을 되돌리기">↶</button>
     <button class="btn ghost" id="tourBtn" title="처음부터">↺</button>
   </nav>
 
-  <div class="hint">드래그=둘러보기 · <b>WASD=걷기</b> · Shift=달리기 · 마커/칩=이동 · <b>다음 →</b>=가이드 투어</div>
+  <!-- 우하단 2D 평면도(나 중심) — 클릭하면 "개념 지도 보기" -->
+  <canvas class="mini" id="miniCv" width="176" height="176" title="개념 지도 보기 — 사물·개념의 실제 배치"></canvas>
 
+  <!-- 개념 지도 — 사물과 개념(공부 항목)의 실제 위치를 닮은 2D 지도 + 편집 -->
+  <div class="modal" id="editModal">
+    <div class="panel esheet">
+      <div class="ehead">
+        <span class="kicker">개념 지도 — 사물·개념의 실제 배치</span>
+        <button class="mx" id="editClose">✕</button>
+      </div>
+      <div class="ebody">
+        <p class="enote"><b>금색=개념</b> · 점선=연결 · 빨강=내 위치·시선 · <b>휠=줌</b>(확대하면 개념 설명 펼침) ·
+           빈 곳 드래그=지도 이동 · <b>점 드래그</b>=핫스팟 이동 · 빈 곳 클릭=추가 · 더블클릭=삭제</p>
+        <canvas id="editCv" width="600" height="600"></canvas>
+        <div class="erow">
+          <input id="newName" placeholder="추가할 핫스팟 이름 (예: 냉장고, 내 책상)" value="기억 지점" />
+        </div>
+        <div class="erow">
+          <button class="btn save" id="editSave">저장하고 적용</button>
+          <button class="btn" id="editExport">JSON 내보내기</button>
+          <button class="btn danger" id="editReset">편집 초기화</button>
+        </div>
+        <p class="enote">저장 = 이 브라우저(localStorage)에 적용. 영구 반영하려면 <b>JSON 내보내기</b> 파일을 public/data/에 커밋하세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="hint">드래그=둘러보기 · <b>WASD=걷기</b> · Shift=달리기 · 마커/칩=이동 · <b>다음 →</b>=가이드 투어 · <b>🧠 개념 지도</b>=지식 배치 한눈에(우하단)</div>
+
+  <button class="panel fab" id="cmapBtn" style="bottom:248px">🧠 개념 지도</button>
   <button class="panel fab" id="listBtn">🪑 인식 가구 <span id="listCount"></span></button>
   <div class="modal" id="modal">
     <div class="panel msheet">
@@ -174,6 +235,36 @@
     const ENV = P.get("env");
     const CEIL = parseFloat(P.get("ceil")) || 2.7;
 
+    // ── 랜드마크 테마(&lm=) — 방을 랜드마크와 의미적으로 결합: 이름·하늘색·복귀 라벨 ──
+    const LM_THEMES = {
+      gwanghwamun:   { name:"광화문의 방",   hanja:"光化門",  sky:0x16213e, hemi:0xbfd0ff, line:"조선의 정문, 새벽의 남빛",
+                       palace:"public/data/palace-gwanghwamun.json",  bg:"public/assets/bg/gwanghwamun.jpg" },
+      gyeongbokgung: { name:"경복궁의 방",   hanja:"景福宮",  sky:0x1d2b24, hemi:0xcfe8d8, line:"법궁의 깊은 녹음",
+                       palace:"public/data/palace-gyeongbokgung.json", bg:"public/assets/bg/gyeongbokgung.jpg" },
+      namsan:        { name:"남산타워의 방", hanja:"南山",    sky:0x0e1a2b, hemi:0xaac4e8, line:"서울 야경의 블루" },
+      cheonggye:     { name:"청계천의 방",   hanja:"淸溪川",  sky:0x122a33, hemi:0xb8e2e8, line:"물길의 청록" },
+      sungnyemun:    { name:"숭례문의 방",   hanja:"崇禮門",  sky:0x251d16, hemi:0xe8d2b0, line:"옛 성문의 횃불빛" },
+      deoksugung:    { name:"덕수궁의 방",   hanja:"德壽宮",  sky:0x2a2030, hemi:0xd8c8e8, line:"돌담길의 석양" },
+      bosingak:      { name:"보신각의 방",   hanja:"普信閣",  sky:0x131a2e, hemi:0xb8c8f0, line:"제야의 밤하늘" },
+      jongmyo:       { name:"종묘의 방",     hanja:"宗廟",    sky:0x161d18, hemi:0xc8d8c8, line:"제례의 정적" },
+      changdeokgung: { name:"창덕궁의 방",   hanja:"昌德宮",  sky:0x15241a, hemi:0xc0e0c8, line:"후원의 숲" },
+      heunginjimun:  { name:"흥인지문의 방", hanja:"興仁之門", sky:0x2b1f14, hemi:0xf0d8b0, line:"동대문 시장의 불빛" },
+    };
+    const LM = P.get("lm");
+    const THEME = (LM && LM_THEMES[LM]) || null;
+    // 입장 인트로 — 현판 한자가 떴다가 방이 드러나며 사라짐(랜드마크 입장임을 몸으로 느끼게)
+    if (THEME) {
+      const d = document.createElement("div");
+      d.className = "lmintro";
+      const c = "#" + THEME.sky.toString(16).padStart(6, "0");
+      d.style.background = `radial-gradient(85% 75% at 50% 42%, ${c}, #05070a)`;
+      d.innerHTML = `<div class="hanja">${THEME.hanja || ""}</div>` +
+                    `<div class="nm">${THEME.name}</div>` +
+                    `<div class="ln">${THEME.line}</div>`;
+      document.body.appendChild(d);
+      setTimeout(() => { d.style.opacity = "0"; setTimeout(() => d.remove(), 1100); }, 2200);
+    }
+
     // ── 내장 샘플 팰리스(요청 JSON 형식) — palace 미지정 시 사용 ──
     const SAMPLE_PALACE = {
       palace: { title: "조선 전기 한국사" },
@@ -195,7 +286,7 @@
     // ── Three.js 기본 ──
     const sceneEl = $("scene");
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b0f0d);
+    scene.background = new THREE.Color(THEME ? THEME.sky : 0x0b0f0d);   // 랜드마크의 하늘색
     const camera = new THREE.PerspectiveCamera(62, innerWidth/innerHeight, 0.02, 500);
     const renderer = new THREE.WebGLRenderer({ antialias:true });
     renderer.setPixelRatio(Math.min(devicePixelRatio||1, 1.6));
@@ -211,7 +302,14 @@
       t.mapping = THREE.EquirectangularReflectionMapping;
       scene.environment = pmrem.fromEquirectangular(t).texture; scene.background = t;
     }, undefined, useNeutral); else useNeutral();
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 0.4));
+    // 랜드마크 배경 사진 — 천장 없는 방이 "그 풍경 속"에 있도록 화면 배경을 실제 랜드마크 정면 샷으로.
+    if (THEME && THEME.bg && !ENV) {
+      new THREE.TextureLoader().load(THEME.bg, t => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        scene.background = t;          // 위(하늘)·틈으로 랜드마크 풍경이 보인다
+      }, undefined, () => {});          // 사진 없으면 테마 하늘색 유지
+    }
+    scene.add(new THREE.HemisphereLight(THEME ? THEME.hemi : 0xffffff, 0x444444, 0.4));  // 랜드마크 톤 조명
     const sun = new THREE.DirectionalLight(0xfff4e6, 1.9); sun.castShadow = true;
     sun.shadow.mapSize.set(2048,2048); sun.shadow.bias = -0.0004; scene.add(sun, sun.target);
 
@@ -227,7 +325,9 @@
     const FURN_RE = /Factory|Sofa|Couch|Cabinet|Table|Desk|Chair|Seat|Bed|Lighting|Lamp|Shelf|Stand|Bookcase|Wardrobe|Stool|Plant|Dresser|Bench|Nightstand|Vase|Jar|Bowl|Candle|window|sink|carpet|painting/i;
 
     let bounds = new THREE.Box3();
-    let anchors = [];           // {pos:Vector3, name}
+    let anchors = [];           // {pos:Vector3, name, label, entityId?}
+    let anchorsPreOrdered = false;  // 사용자 편집본은 저장된 순서 그대로(최근접 재정렬 금지)
+    let spawnPos = null;
     let route = [];             // 경로 순 핫스팟 [{pos, entity, number, marker, related:[]}]
     let activeIdx = -1;
     const UP = new THREE.Vector3(0,1,0);
@@ -260,6 +360,8 @@
       model.traverse(c => {
         if (!c.isMesh) return;
         if (backs.has(c)) { c.visible = false; return; }   // 배경 숨김(시야·바운즈 오염 방지)
+        // 배경 사진 테마면 천장 제거(이름 기반) → 하늘을 보면 랜드마크 풍경이 보이게
+        if (THEME && THEME.bg && /ceiling|roof/i.test(c.name || "")) { c.visible = false; return; }
         const mats = Array.isArray(c.material)?c.material:[c.material];
         mats.forEach(m => { if (m){ m.side = THREE.DoubleSide; m.needsUpdate = true; } });
         c.castShadow = true; c.receiveShadow = true;
@@ -272,6 +374,34 @@
       });
       scene.add(model);
       bounds = new THREE.Box3(); model.traverse(c => { if (c.isMesh && c.visible) bounds.expandByObject(c); });
+      // 배경 사진 테마: 천장 제거.
+      //  ① 분리된 천장 메쉬면 숨김("꼭대기의 얇고 넓은 판" 판정)
+      //  ② 벽과 한 덩어리(일체형)면 메쉬로는 못 떼므로 클리핑 평면(clipping plane)으로
+      //     천장 높이 위를 렌더에서 잘라낸다 → 위를 보면 배경(랜드마크)이 보인다.
+      if (THEME && THEME.bg) {
+        const top = bounds.max.y;
+        const area = (bounds.max.x - bounds.min.x) * (bounds.max.z - bounds.min.z);
+        let hid = false;
+        model.traverse(c => {
+          if (!c.isMesh || !c.visible || backs.has(c)) return;
+          const b = new THREE.Box3().setFromObject(c);
+          const s = b.getSize(new THREE.Vector3());
+          if (s.y < 0.3 && b.min.y > top - 0.5 && s.x * s.z > area * 0.3) { c.visible = false; hid = true; }
+        });
+        if (!hid) {                                   // 일체형 → 위를 잘라 하늘 개방
+          renderer.localClippingEnabled = true;
+          const plane = new THREE.Plane(new THREE.Vector3(0, -1, 0), top - 0.3);  // y ≤ top-0.3만 보임
+          model.traverse(c => {
+            if (!c.isMesh || !c.visible) return;
+            (Array.isArray(c.material) ? c.material : [c.material]).forEach(m => {
+              if (m) { m.clippingPlanes = [plane]; m.clipShadows = true; m.needsUpdate = true; }
+            });
+          });
+        }
+        bounds = new THREE.Box3(); model.traverse(c => { if (c.isMesh && c.visible) bounds.expandByObject(c); });
+        if (!hid) bounds.max.y = Math.min(bounds.max.y, top - 0.3);   // 클리핑 후 실효 높이
+      }
+      buildFurnRects(model, backs);   // 2D 평면도용 가구 발자국(footprint)
       // 같은 라벨 가까운 앵커 병합(수납장 패널 여러 개 → 하나)
       anchors = mergeAnchors(anchors, 1.0);
       setupSun();
@@ -312,8 +442,26 @@
 
     // 스캐너(personal-room-scanner-3d) 핫스팟 JSON으로 앵커 대체 — 무명/포토그래메트리 GLB도
     //   Azure 검출 좌표로 동선을 깐다. (좌표계 동일: 둘 다 가로 7.2·바닥 0 정규화)
+    // 우선순위: ① 사용자 편집(localStorage) > ② hotspots JSON > ③ GLB 이름표.
     const HOTSPOTS_URL = P.get("hotspots");
+    const OVERRIDE_KEY = "mw_edit:" + ROOM_GLB;
+    function loadOverride() {
+      try {
+        const j = JSON.parse(localStorage.getItem(OVERRIDE_KEY) || "null");
+        return (j && Array.isArray(j.hotspots)) ? j.hotspots : null;
+      } catch { return null; }
+    }
     async function resolveAnchorsThenPalace() {
+      const ov = loadOverride();
+      if (ov && ov.length) {
+        anchors = ov.map(h => ({ pos: new THREE.Vector3(...h.markerPosition),
+          label: String(h.detectedClass || h.object || "object").toLowerCase(), name: h.object || "",
+          entityId: h.entityId || null }));
+        anchorsPreOrdered = true;   // 저장된 슬롯 순서 = 사용자가 정한 동선
+        setStatus(`✎ 사용자 편집 핫스팟 ${anchors.length}개 적용 (개념 지도 클릭=편집)`);
+        loadPalaceThenBuild();
+        return;
+      }
       if (HOTSPOTS_URL) {
         try {
           const j = await (await fetch(HOTSPOTS_URL)).json();
@@ -321,7 +469,8 @@
           if (hs.length) {
             anchors = hs.map(h => ({ pos: new THREE.Vector3(...h.markerPosition),
               label: String(h.detectedClass || h.object || "object").toLowerCase(), name: h.object || "" }));
-            setStatus(`스캐너 핫스팟 ${anchors.length}개로 동선 구성`);
+            if (j.ordered) anchorsPreOrdered = true;   // 큐레이션된 동선(slot 순서) 그대로 사용
+            setStatus(`스캐너 핫스팟 ${anchors.length}개로 동선 구성${j.ordered ? " (큐레이션 순서)" : ""}`);
           }
         } catch (e) { console.warn("hotspots 로드 실패 → 이름표 앵커 사용", e); }
       }
@@ -330,13 +479,22 @@
 
     async function loadPalaceThenBuild() {
       let palace = SAMPLE_PALACE;
-      const url = P.get("palace");
+      // 우선순위: ?palace= 명시 > 랜드마크 테마의 전용 콘텐츠(맥락 부호화) > 내장 샘플
+      const url = P.get("palace") || (THEME && THEME.palace) || null;
       if (url) { try { palace = await (await fetch(url)).json(); } catch(e){ console.warn("palace 로드 실패, 샘플 사용", e); } }
       $("palaceTitle").textContent = palace.palace?.title || "기억 궁전";
       const rid = P.get("room");
       const room = (palace.rooms||[]).find(r => r.id === rid) || (palace.rooms||[])[0];
       if (!room) { setStatus("팰리스에 방이 없습니다."); return; }
       $("roomName").textContent = `${room.name} — ${room.summary||""}`;
+      // 랜드마크 테마: 방 이름·킥커·복귀 라벨을 그 랜드마크로(의미 결합 ①)
+      if (THEME) {
+        const lmName = THEME.name.replace("의 방", "");
+        $("palaceTitle").textContent = THEME.name;
+        document.querySelector(".top .kicker").textContent = `Memory Palace · ${lmName}`;
+        $("roomName").textContent = `${THEME.line} · ${room.name}`;
+        $("backBtn").textContent = `← ${lmName}으로`;
+      }
       const entities = (room.kept||[]).slice().sort((a,b)=>(a.rank||99)-(b.rank||99));
       buildRoute(entities);
     }
@@ -346,27 +504,36 @@
       if (!anchors.length) { setStatus("이 방에서 가구 앵커를 못 찾았습니다(이름 없는 GLB?)."); return; }
       const sz = bounds.getSize(new THREE.Vector3());
       const spawn = new THREE.Vector3(bounds.min.x + sz.x*0.12, bounds.min.y + 1.5, bounds.max.z - sz.z*0.12);
+      spawnPos = spawn.clone();
       const floor = bounds.min.y;
-      // 1) 최근접 이웃으로 "모든 가구"를 경로 순 정렬(되돌아오지 않는 동선)
-      const ordered = nearestRoute(anchors, spawn);
-      // 2) 학습 엔티티를 어울리는 가구에 배정(타입 친화, rank 우선) — 매핑된 가구만 카드에 내용
-      const entOf = new Map(), used = new Set();
+      // 1) 동선 순서: 사용자 편집본이면 저장된 순서 그대로, 아니면 최근접 이웃 정렬
+      const ordered = anchorsPreOrdered ? anchors.slice() : nearestRoute(anchors, spawn);
+      // 2) 학습 엔티티 배정 — ① 저장된 직접 바인딩(entityId) 우선(편집·이동·순서변경에도 유지),
+      //    ② 남은 엔티티는 타입 친화(typeAffinity)로.
+      const entOf = new Map(), used = new Set(), boundEnts = new Set();
+      for (const a of ordered) {
+        if (!a.entityId) continue;
+        const ent = entities.find(e => e.id === a.entityId);
+        if (ent && !boundEnts.has(ent)) { entOf.set(a, ent); used.add(a); boundEnts.add(ent); }
+      }
+      // ③ 남은 엔티티는 rank 순서 = 동선 순서로 배정(걷는 순서가 곧 서사 순서가 되게).
+      //    (기존 타입-친화 배정은 순서를 흩뜨려 1번 개념이 9번 지점에 가는 문제 → 폐기)
+      const freeAnchors = ordered.filter(a => !used.has(a));
+      let fi = 0;
       for (const ent of entities) {
-        let best = null, bs = -1;
-        for (const a of ordered) { if (used.has(a)) continue;
-          const s = typeAffinity(ent.type, a.label);
-          if (s > bs) { bs = s; best = a; } }
-        if (!best) best = ordered.find(a => !used.has(a));
-        if (best) { used.add(best); entOf.set(best, ent); }
+        if (boundEnts.has(ent)) continue;
+        const a = freeAnchors[fi++];
+        if (!a) break;
+        used.add(a); entOf.set(a, ent);
       }
       // 3) 모든 가구 = 걷는 순서 번호 핫스팟. 일부엔 학습 엔티티가 얹힘.
+      //    (기존: 모든 마커를 눈높이 1.2~1.95m로 강제 → 러그·의자·카운터 소품에서 마커가
+      //     공중에 떠 사물과 분리돼 보였음. → 폐기)
       route = ordered.map((a, i) => {
         const p = a.pos.clone();
-        const ey = Math.min(Math.max(p.y + 0.3, floor + 1.2), floor + 1.95);  // 눈높이 근처로 클램프
-        return { pos: p, label: a.label, name: a.name, entity: entOf.get(a) || null, number: i+1, eye: p.clone().setY(ey) };
+        return { pos: p, label: a.label, name: a.name, entity: entOf.get(a) || null, number: i+1, eye: p.clone() };
       });
-      // 겹쳐 보이는 마커(같은 XZ 0.4m 내)를 황금각 나선으로 x,z 흩고 세로로도 층 → 어느 각도서도 안 겹침.
-      //   (부피 큰 사물은 중심이 위의 작은 사물들과 겹치기 쉬워 변주가 특히 필요)
+      // 겹쳐 보이는 마커(같은 XZ 0.4m 내)만 황금각 나선으로 x,z 살짝 흩음.
       const _cl = [];
       route.forEach(h => {
         let g = _cl.find(c => Math.hypot(c.cx - h.pos.x, c.cz - h.pos.z) < 0.4);
@@ -377,19 +544,27 @@
         if (g.items.length < 2) return;
         g.items.forEach((h, k) => {
           const ang = k * 2.39996323;                  // 황금각(golden angle) → 고르게 분산
-          const r = 0.14 + 0.10 * k;                   // 바깥으로 나선
-          const e = h.eye.clone();
-          e.x = g.cx + Math.cos(ang) * r;              // x,z 수평으로만 흩음
-          e.z = g.cz + Math.sin(ang) * r;
-          // 높이(세로)는 원래 눈높이 그대로 — 천장까지 솟지 않게(높이 변주 제거).
-          h.eye = e; h._stack = k;
+          const r = 0.12 + 0.08 * k;                   // 바깥으로 나선
+          h.eye.x = g.cx + Math.cos(ang) * r;
+          h.eye.z = g.cz + Math.sin(ang) * r;
+          h._stack = k;
         });
+      });
+      // 마커를 "사물 표면에 부착": 그 (x,z)에서 수직 레이캐스트로 표면 높이 + 18cm.
+      //   벽 부착물(창문·그림·펜던트 조명)은 아래로 쏘면 바닥에 떨어지므로,
+      //   스냅 결과가 원좌표와 1m 이상 차이나면 원좌표(검출 표면점)를 그대로 쓴다.
+      route.forEach(h => {
+        const sy = snapY(h.eye.x, h.eye.z);
+        const base = Math.abs(sy - h.pos.y) > 1.0 ? h.pos.y : sy;
+        h.eye.y = Math.min(Math.max(base + 0.18, floor + 0.2), bounds.max.y - 0.12);
       });
       window.__mw = { route, anchors, ordered };   // 디버그
       $("listBtn").style.display = "inline-flex"; $("listCount").textContent = anchors.length; buildObjectList();
+      $("cmapBtn").style.display = "inline-flex"; $("cmapBtn").onclick = openEditor;
       buildMarkers(); buildRouteLine(spawn); buildRelations();
       spawnAt(spawn);
       $("nav").style.display = "";
+      $("miniCv").style.display = "block";
       const mapped = route.filter(h => h.entity).length;
       setStatus(`동선 ${route.length}개 지점 · 학습 ${mapped}개 배치 · <b>다음 →</b>으로 투어 시작`);
       activeIdx = -1; renderDots(-1); overviewCam(true);   // 첫 화면 = 방 전체 조망(다음 → 으로 투어 시작)
@@ -450,27 +625,49 @@
         h.marker.scale.setScalar(i===activeIdx ? 0.44 : 0.34);
       });
     }
-    // 바닥 동선 라인(출발 → 1 → 2 → …)
+    // 바닥 동선 라인(출발 → 1 → 2 → …) — 순서 변경/이동 시 재구성 가능하게 그룹으로.
+    let routeGroup = null;
     function buildRouteLine(spawn) {
+      if (routeGroup) scene.remove(routeGroup);
+      routeGroup = new THREE.Group();
       const fy = bounds.min.y + 0.03;
       const pts = [spawn.clone().setY(fy), ...route.map(h => h.pos.clone().setY(fy))];
       const geo = new THREE.BufferGeometry().setFromPoints(pts);
-      scene.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color:0xa9d8c8, transparent:true, opacity:0.5 })));
-      // 발자국 점
+      routeGroup.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color:0xa9d8c8, transparent:true, opacity:0.5 })));
       pts.forEach(p => {
         const dot = new THREE.Mesh(new THREE.CircleGeometry(0.07, 16),
           new THREE.MeshBasicMaterial({ color:0xa9d8c8, transparent:true, opacity:0.5 }));
-        dot.rotation.x = -Math.PI/2; dot.position.copy(p).setY(fy+0.001); scene.add(dot);
+        dot.rotation.x = -Math.PI/2; dot.position.copy(p).setY(fy+0.001); routeGroup.add(dot);
       });
+      scene.add(routeGroup);
     }
-    // related 엔티티끼리 연결선(개념 연관 = 공간 연결)
+    // related 엔티티끼리 연결선(개념 연관 = 공간 연결) — 재구성 가능하게 그룹으로.
+    let relGroup = null;
     function buildRelations() {
+      if (relGroup) scene.remove(relGroup);
+      relGroup = new THREE.Group();
       const byId = {}; route.forEach(h => { if (h.entity) byId[h.entity.id] = h; });
       route.forEach(h => { if (!h.entity) return; (h.entity.related||[]).forEach(rid => {
         const t = byId[rid]; if (!t) return;
         const geo = new THREE.BufferGeometry().setFromPoints([h.eye.clone(), t.eye.clone()]);
-        scene.add(new THREE.Line(geo, new THREE.LineDashedMaterial({ color:0xd6bb70, dashSize:0.12, gapSize:0.1, transparent:true, opacity:0.35 })).computeLineDistances());
+        relGroup.add(new THREE.Line(geo, new THREE.LineDashedMaterial({ color:0xd6bb70, dashSize:0.12, gapSize:0.1, transparent:true, opacity:0.35 })).computeLineDistances());
       }); });
+      scene.add(relGroup);
+    }
+    // 순서/위치 변경 후 일괄 갱신: 번호·마커·점·동선·연결선·목록 + 저장.
+    function renumberRoute(msg) {
+      route.forEach((h, i) => {
+        h.number = i + 1;
+        const sp = numberSprite(h.number, i === activeIdx);
+        sp.position.copy(h.eye); sp.renderOrder = 999; sp.userData = { idx: i, active: i === activeIdx };
+        if (h.marker) scene.remove(h.marker);
+        scene.add(sp); h.marker = sp;
+      });
+      renderDots(activeIdx); buildObjectList();
+      if (spawnPos) buildRouteLine(spawnPos);
+      buildRelations();
+      saveOverrideFromRoute();
+      if (msg) setStatus(msg);
     }
 
     // 가구 라벨 → 한글(공부 항목이 "어느 가구"에 매칭됐는지 카드에 명시)
@@ -482,22 +679,42 @@
       stove:"가스레인지", oven:"오븐", refrigerator:"냉장고", television:"TV", cup:"컵", clock:"시계" };
     const furnKO = label => { const l = String(label||"").toLowerCase(); for (const k in FURN_KO) if (l.includes(k)) return FURN_KO[k]; return label || "가구"; };
 
-    // 인식된 모든 가구 팝업 — 어느 가구에 어떤 공부 항목이 배치됐는지 한눈에.
+    // 인식된 모든 가구 팝업 — 걷는 순번(1·2·3…)대로. 클릭=이동+개념 카드, ☰ 드래그=순서 변경.
+    let dragRow = null;
     function buildObjectList() {
       const el = $("mlist"); el.innerHTML = "";
-      anchors.forEach(a => {
-        const h = route.find(r => r.pos.distanceTo(a.pos) < 0.05);   // 이 가구에 배치된 항목?
+      route.forEach((h, i) => {
         const row = document.createElement("div"); row.className = "mrow";
-        const study = h && h.entity;
+        const study = !!h.entity;
         const dot = document.createElement("span"); dot.className = "dot"; dot.style.background = study ? "#dcc079" : "#a9d8c8";
         const fn = document.createElement("span"); fn.className = "fn";
-        fn.textContent = (h ? `${h.number}. ` : "") + furnKO(a.label);
+        fn.textContent = `${h.number}. ` + furnKO(h.label);
         const ent = document.createElement("span"); ent.className = "ent" + (study ? "" : " none");
         ent.textContent = study ? h.entity.title : "—";
-        row.append(dot, fn, ent);
-        row.onclick = () => { $("modal").classList.remove("open");
-          if (h) goTo(route.indexOf(h));
-          else flyTo(new THREE.Vector3(a.pos.x+1.6, bounds.min.y+1.55, a.pos.z+1.6), a.pos.clone()); };
+        const del = document.createElement("button");
+        del.textContent = "✕"; del.title = "이 핫스팟 삭제 (↶로 되돌리기 가능)";
+        del.style.cssText = "background:none;border:none;color:rgba(244,241,234,.38);cursor:pointer;font:inherit;font-size:13px;padding:2px 5px;";
+        del.onmouseenter = () => del.style.color = "#e08c8c";
+        del.onmouseleave = () => del.style.color = "rgba(244,241,234,.38)";
+        del.onclick = (e) => { e.stopPropagation(); deleteHotspot(i); };
+        row.append(dot, fn, ent, del);
+        row.title = "클릭=이동 · 드래그=순서 변경 · ✕=삭제";
+        row.onclick = () => { $("modal").classList.remove("open"); goTo(i); };  // 이동 + 개념 설명 카드
+        // 드래그로 순서 변경 → 번호·동선·저장까지 갱신
+        row.draggable = true;
+        row.addEventListener("dragstart", e => { dragRow = i; e.dataTransfer.effectAllowed = "move"; row.style.opacity = ".4"; });
+        row.addEventListener("dragend", () => { row.style.opacity = ""; });
+        row.addEventListener("dragover", e => { e.preventDefault(); row.style.borderColor = "var(--gold)"; });
+        row.addEventListener("dragleave", () => { row.style.borderColor = ""; });
+        row.addEventListener("drop", e => {
+          e.preventDefault(); row.style.borderColor = "";
+          if (dragRow === null || dragRow === i) return;
+          pushUndo();   // ↶ 되돌리기용 스냅샷
+          const act = activeIdx >= 0 ? route[activeIdx] : null;
+          const [m] = route.splice(dragRow, 1); route.splice(i, 0, m); dragRow = null;
+          activeIdx = act ? route.indexOf(act) : -1;
+          renumberRoute(`순서 변경 저장됨 — 동선이 새 순서를 따릅니다`);
+        });
         el.appendChild(row);
       });
     }
@@ -551,15 +768,474 @@
     // 광화문 지도로 복귀: 지도에서 들어왔으면 그 페이지(키 포함)로, 아니면 지도 페이지로.
     $("backBtn").onclick = () => {
       if (history.length > 1 && document.referrer) history.back();
-      else location.href = "vworld_3d_map_live.html";
+      else location.href = THEME ? "vworld_landmarks.html" : "vworld_3d_map_live.html";
     };
+    // ⌂ 홈 — 미리 잡아둔 "모든 핫스팟이 가장 잘 보이는" 전체 조망으로.
+    $("homeBtn").onclick = () => { activeIdx = -1; renderDots(-1); $("card").style.display = "none"; overviewCam(false); };
 
-    // 마커 클릭 → 그 지점
+    // ── 다음 방 ⏭ — 지도로 안 나가고 방→방 순환 이동. 실제 존재하는 방만(HEAD 체크) ──
+    const ROOMS = [
+      { id: "dining", title: "다이닝 키친", glb: "public/assets/rooms/dining_kitchen_baked.glb", hotspots: "public/data/dining-hotspots.json" },
+      { id: "loft",   title: "로프트",      glb: "public/assets/rooms/loft.glb",                 hotspots: "public/data/loft-hotspots.json" },
+      { id: "cozy",   title: "코지 룸",     glb: "public/assets/rooms/cozy.glb",                 hotspots: "public/data/cozy-hotspots.json" },
+    ];
+    (async function setupNextRoom() {
+      const cur = ROOMS.findIndex(r => ROOM_GLB.endsWith(r.glb) || r.glb.endsWith(ROOM_GLB));
+      for (let k = 1; k <= ROOMS.length; k++) {
+        const cand = ROOMS[((cur < 0 ? 0 : cur) + k) % ROOMS.length];
+        if (ROOM_GLB.endsWith(cand.glb)) continue;
+        try {
+          const res = await fetch(cand.glb, { method: "HEAD" });
+          if (!res.ok) continue;                       // 없는 방(예: 배포판의 cozy)은 건너뜀
+          const b = $("nextRoomBtn");
+          b.style.display = "inline-flex";
+          b.textContent = `${cand.title} ⏭`;
+          b.title = `다음 방으로 이동: ${cand.title}`;
+          b.onclick = () => location.href = `memory-walk.html?glb=${cand.glb}&hotspots=${cand.hotspots}`;
+          return;
+        } catch {}
+      }
+    })();
+
+    // ════════════ 2D 평면도(미니맵 + 편집 대시보드) ════════════
+    // 가구 발자국(footprint): 모델 최상위 노드별 AABB를 바닥에 투영한 사각형.
+    let furnRects = [];
+    function buildFurnRects(model, backs) {
+      const collect = (parent) => {
+        const roots = new Map();
+        parent.traverse(c => {
+          if (!c.isMesh || backs.has(c) || !c.visible) return;
+          let o = c; while (o.parent && o.parent !== parent) o = o.parent;
+          if (!roots.has(o)) roots.set(o, new THREE.Box3());
+          roots.get(o).union(new THREE.Box3().setFromObject(c));
+        });
+        return roots;
+      };
+      // 래퍼가 몇 겹이든 "가구 단위"가 나올 때까지 내려간다(자식 1개짜리 체인 통과)
+      let parent = model, roots = collect(parent), guard = 0;
+      while (roots.size < 3 && parent.children.length >= 1 && guard++ < 5) {
+        const next = parent.children.length === 1 ? parent.children[0]
+          : [...roots.keys()][0];
+        if (!next || next === parent) break;
+        parent = next; roots = collect(parent);
+      }
+      const sz = bounds.getSize(new THREE.Vector3());
+      furnRects = [];
+      roots.forEach(b => {
+        const s = b.getSize(new THREE.Vector3());
+        const dim = Math.max(s.x, s.z);
+        if (dim > 0.15 && dim < Math.max(sz.x, sz.z) * 0.85 && s.y > 0.04)
+          furnRects.push({ x1: b.min.x, z1: b.min.z, x2: b.max.x, z2: b.max.z });
+      });
+    }
+    // (x,z) 위에서 아래로 광선을 쏴 "그 자리 표면 높이"를 얻는다 — 마커가 가구 위에 정확히 앉게.
+    function snapY(x, z) {
+      const rc = new THREE.Raycaster(new THREE.Vector3(x, bounds.max.y + 0.6, z), new THREE.Vector3(0, -1, 0));
+      const meshes = []; scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
+      const hit = rc.intersectObjects(meshes, false)[0];
+      return hit ? hit.point.y : bounds.min.y + 0.8;
+    }
+
+    // ── 미니맵(나 중심·북쪽 고정) — 광화문 미니맵과 동일한 문법: 화살표 중앙, 지도가 움직임 ──
+    const miniCv = $("miniCv");
+    function drawMini() {
+      if (!miniCv || !isFinite(bounds.min.x)) return;
+      const g = miniCv.getContext("2d");
+      const W = miniCv.width, H = miniCv.height, S = 15;           // 15px = 1m(방 전체가 거의 들어오게)
+      g.clearRect(0, 0, W, H);
+      const px = (wx, wz) => [W/2 + (wx - camera.position.x) * S, H/2 + (wz - camera.position.z) * S];
+      // 방 외곽
+      g.strokeStyle = "rgba(244,241,234,.4)"; g.lineWidth = 1.5;
+      const [ox, oz] = px(bounds.min.x, bounds.min.z);
+      g.strokeRect(ox, oz, (bounds.max.x - bounds.min.x) * S, (bounds.max.z - bounds.min.z) * S);
+      // 가구 발자국
+      g.fillStyle = "rgba(169,216,200,.14)"; g.strokeStyle = "rgba(169,216,200,.32)"; g.lineWidth = 1;
+      furnRects.forEach(r => { const [x, z] = px(r.x1, r.z1);
+        g.fillRect(x, z, (r.x2 - r.x1) * S, (r.z2 - r.z1) * S); g.strokeRect(x, z, (r.x2 - r.x1) * S, (r.z2 - r.z1) * S); });
+      // 동선
+      g.strokeStyle = "rgba(169,216,200,.4)"; g.lineWidth = 1.4; g.beginPath();
+      route.forEach((h, i) => { const [x, z] = px(h.pos.x, h.pos.z); i ? g.lineTo(x, z) : g.moveTo(x, z); });
+      g.stroke();
+      // 핫스팟(학습=금색, 현재=크게)
+      route.forEach((h, i) => {
+        const [x, z] = px(h.pos.x, h.pos.z);
+        const cur = i === activeIdx;
+        g.beginPath(); g.arc(x, z, cur ? 6.5 : (h.entity ? 5.5 : 3.5), 0, 7);   // 지식 점은 크게
+        g.fillStyle = h.entity ? "#dcc079" : "#a9d8c8"; g.fill();
+        if (cur) { g.strokeStyle = "#fff"; g.lineWidth = 1.6; g.stroke(); }
+        g.fillStyle = "#0b0f0d"; g.font = "700 7px Arial"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(h.number), x, z + 0.5);
+      });
+      // 나(빨간 삼각형, 중앙 고정 — 시선 방향)
+      const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+      const ang = Math.atan2(fwd.x, -fwd.z);
+      g.save(); g.translate(W/2, H/2); g.rotate(ang);
+      g.fillStyle = "#ff3b30";
+      g.beginPath(); g.moveTo(0, -9); g.lineTo(6, 6); g.lineTo(0, 2.5); g.lineTo(-6, 6); g.closePath(); g.fill();
+      g.restore();
+      // 캡션
+      g.fillStyle = "rgba(244,241,234,.55)"; g.font = "700 9px 'Malgun Gothic',Arial"; g.textAlign = "left";
+      g.fillText("개념 지도 · 클릭=크게", 8, H - 8);
+    }
+    miniCv.addEventListener("click", openEditor);
+
+    // ── 편집 대시보드: 방 전체 고정 뷰. 드래그=이동(+표면 스냅), 빈곳 클릭=추가, 더블클릭=삭제 ──
+    const editCv = $("editCv");
+    let editList = [];                       // [{label,name,x,y,z}]
+    let eScale = 1, eOx = 0, eOz = 0, dragIdx = -1, dragMovedE = false;
+    function e2c(wx, wz) { return [eOx + wx * eScale, eOz + wz * eScale]; }   // world→canvas
+    function c2e(cx, cz) { return [(cx - eOx) / eScale, (cz - eOz) / eScale]; }
+    let eFit = 1;   // 방 전체가 들어오는 기준 배율(휠 줌의 기준점)
+    function openEditor() {
+      editList = route.map(h => ({ label: h.label, name: h.name || "", x: h.pos.x, y: h.pos.y, z: h.pos.z,
+        ent: h.entity ? h.entity.title : null, entId: h.entity ? h.entity.id : null,
+        capt: h.entity ? (h.entity.caption || h.entity.description || "") : null,
+        rel: h.entity ? (h.entity.related || []) : [] }));
+      const sz = bounds.getSize(new THREE.Vector3());
+      const pad = 46, Wc = editCv.width, Hc = editCv.height;
+      eScale = Math.min((Wc - pad*2) / Math.max(sz.x, 0.01), (Hc - pad*2) / Math.max(sz.z, 0.01));
+      eFit = eScale;
+      const c = bounds.getCenter(new THREE.Vector3());
+      eOx = Wc/2 - c.x * eScale; eOz = Hc/2 - c.z * eScale;
+      drawEditor();
+      $("editModal").classList.add("open");
+    }
+    // 휠 = 커서 중심 줌. 확대하면 개념 캡션(설명)이 노드 아래에 펼쳐진다.
+    editCv.addEventListener("wheel", ev => {
+      ev.preventDefault();
+      const [cx, cz] = evPos(ev);
+      const k = ev.deltaY < 0 ? 1.16 : 1 / 1.16;
+      const ns = Math.min(Math.max(eScale * k, eFit * 0.8), eFit * 5);
+      const kk = ns / eScale;
+      eOx = cx - (cx - eOx) * kk;
+      eOz = cz - (cz - eOz) * kk;
+      eScale = ns;
+      drawEditor();
+    }, { passive: false });
+    // 개념 지도 그리기 — "지식 습득"이 목표: 개념 노드(금색·크게)가 주인공, 사물은 배경.
+    //   겹침 해소: 실제 위치(작은 점)와 표시 노드를 분리해 서로 밀어내고(반복 완화),
+    //   많이 밀린 노드는 가는 리더선으로 실제 위치와 연결 → 위치 파악 + 가독 둘 다.
+    let eNodes = [];
+    function drawEditor() {
+      const g = editCv.getContext("2d");
+      const W = editCv.width, H = editCv.height;
+      g.clearRect(0, 0, W, H);
+      // ① 배경: 방 외곽 + 가구 발자국(사물 위치 파악용)
+      g.strokeStyle = "rgba(244,241,234,.45)"; g.lineWidth = 2;
+      const [bx, bz] = e2c(bounds.min.x, bounds.min.z);
+      g.strokeRect(bx, bz, (bounds.max.x - bounds.min.x) * eScale, (bounds.max.z - bounds.min.z) * eScale);
+      g.fillStyle = "rgba(169,216,200,.10)"; g.strokeStyle = "rgba(169,216,200,.26)"; g.lineWidth = 1;
+      furnRects.forEach(r => { const [x, z] = e2c(r.x1, r.z1);
+        g.fillRect(x, z, (r.x2 - r.x1) * eScale, (r.z2 - r.z1) * eScale); g.strokeRect(x, z, (r.x2 - r.x1) * eScale, (r.z2 - r.z1) * eScale); });
+      // ② 노드 표시 위치 계산 — 서로 밀어내 겹침 해소(드래그 중인 노드는 고정)
+      eNodes = editList.map((h, i) => { const [cx, cz] = e2c(h.x, h.z);
+        return { h, i, cx, cz, dx: cx, dz: cz, r: h.ent ? 14 : 8 }; });
+      const capOn = eScale > eFit * 1.5;   // 줌인 = 캡션 표시 모드 → 더 넓게 밀어냄
+      for (let it = 0; it < 36; it++) {
+        let moved = false;
+        for (let a = 0; a < eNodes.length; a++) for (let b = a + 1; b < eNodes.length; b++) {
+          const A = eNodes[a], B = eNodes[b];
+          const need = A.r + B.r +
+            ((A.h.ent && B.h.ent && capOn) ? 84 : (A.h.ent || B.h.ent) ? 30 : 16);   // 라벨·캡션 공간
+          let ddx = B.dx - A.dx, ddz = B.dz - A.dz;
+          let d = Math.hypot(ddx, ddz) || 0.01;
+          if (d < need) {
+            const push = (need - d) / 2; ddx /= d; ddz /= d;
+            if (A.i !== dragIdx) { A.dx -= ddx * push; A.dz -= ddz * push; }
+            if (B.i !== dragIdx) { B.dx += ddx * push; B.dz += ddz * push; }
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+      eNodes.forEach(n => { n.dx = Math.min(Math.max(n.dx, 30), W - 30); n.dz = Math.min(Math.max(n.dz, 34), H - 30); });
+      // ③ 리더선: 표시 노드가 실제 위치에서 밀려났으면 가는 선 + 실제 지점 점
+      eNodes.forEach(n => {
+        const off = Math.hypot(n.dx - n.cx, n.dz - n.cz);
+        if (off > 13) {
+          g.strokeStyle = "rgba(244,241,234,.3)"; g.lineWidth = 1;
+          g.beginPath(); g.moveTo(n.cx, n.cz); g.lineTo(n.dx, n.dz); g.stroke();
+        }
+        g.fillStyle = n.h.ent ? "rgba(220,192,121,.8)" : "rgba(169,216,200,.6)";
+        g.beginPath(); g.arc(n.cx, n.cz, 2.6, 0, 7); g.fill();   // 실제 위치 점(항상)
+      });
+      // ④ 개념 연결(related) — 금색 점선(표시 위치 기준)
+      const byId = {}; eNodes.forEach(n => { if (n.h.entId) byId[n.h.entId] = n; });
+      g.strokeStyle = "rgba(220,192,121,.55)"; g.setLineDash([6, 5]); g.lineWidth = 1.5;
+      eNodes.forEach(n => { (n.h.rel || []).forEach(rid => { const t = byId[rid]; if (!t) return;
+        g.beginPath(); g.moveTo(n.dx, n.dz); g.lineTo(t.dx, t.dz); g.stroke(); }); });
+      g.setLineDash([]);
+      // ⑤ 사물 노드(작게·차분) → ⑥ 개념 노드(크게·금색) 순서로, 지식이 항상 위에
+      eNodes.filter(n => !n.h.ent).forEach(n => {
+        g.beginPath(); g.arc(n.dx, n.dz, 8, 0, 7);
+        g.fillStyle = n.i === dragIdx ? "#fff" : "rgba(169,216,200,.8)"; g.fill();
+        g.strokeStyle = "#0b0f0d"; g.lineWidth = 1.6; g.stroke();
+        g.fillStyle = "#0b0f0d"; g.font = "800 8.5px Arial"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(n.i + 1), n.dx, n.dz + 0.5);
+        g.fillStyle = "rgba(244,241,234,.62)"; g.font = "600 9.5px 'Malgun Gothic',Arial";
+        g.fillText(furnKO(n.h.label), n.dx, n.dz + 17);
+      });
+      const capRects = [];   // 이미 그린 캡션 박스 — 겹치면 그 캡션은 생략(텍스트 충돌 방지)
+      eNodes.filter(n => n.h.ent).forEach(n => {
+        g.shadowColor = "rgba(220,192,121,.55)"; g.shadowBlur = 10;
+        g.beginPath(); g.arc(n.dx, n.dz, 14, 0, 7);
+        g.fillStyle = n.i === dragIdx ? "#fff" : "#dcc079"; g.fill();
+        g.shadowBlur = 0;
+        g.strokeStyle = "#0b0f0d"; g.lineWidth = 2; g.stroke();
+        g.fillStyle = "#1d1607"; g.font = "800 12px Arial"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(n.i + 1), n.dx, n.dz + 0.5);
+        g.fillStyle = "#ecd9a0"; g.font = "800 13.5px 'Malgun Gothic',Arial";
+        g.fillText(n.h.ent, n.dx, n.dz - 23);                            // 지식(개념) — 주인공
+        g.fillStyle = "rgba(244,241,234,.5)"; g.font = "600 9px 'Malgun Gothic',Arial";
+        g.fillText(furnKO(n.h.label), n.dx, n.dz + 23);                  // 어느 사물에 걸렸나
+        // 휠로 확대하면 캡션(설명)이 펼쳐진다 — 이미 그린 캡션과 겹치면 생략(텍스트 충돌 방지)
+        if (capOn && n.h.capt) {
+          const words = String(n.h.capt);
+          const lines = [];
+          for (let s = 0; s < words.length && lines.length < 3; s += 17) lines.push(words.slice(s, s + 17));
+          if (words.length > 51) lines[2] = lines[2].slice(0, 16) + "…";
+          g.font = "600 10.5px 'Malgun Gothic',Arial";
+          const bw = Math.min(200, Math.max(...lines.map(l => g.measureText(l).width)) + 14);
+          const bh = lines.length * 14 + 10;
+          const rect = { x: n.dx - bw/2, y: n.dz + 32, w: bw, h: bh };
+          const clash = capRects.some(r =>
+            rect.x < r.x + r.w && rect.x + rect.w > r.x && rect.y < r.y + r.h && rect.y + rect.h > r.y);
+          if (!clash) {
+            capRects.push(rect);
+            g.fillStyle = "rgba(8,12,11,.82)";
+            g.beginPath(); g.roundRect(rect.x, rect.y, bw, bh, 7); g.fill();
+            g.strokeStyle = "rgba(220,192,121,.35)"; g.lineWidth = 1; g.stroke();
+            g.fillStyle = "rgba(244,241,234,.86)";
+            lines.forEach((l, li) => g.fillText(l, n.dx, n.dz + 44 + li * 14));
+          }
+        }
+      });
+      // ⑦ 나 — 현재 위치 + 시선 방향
+      const [mx, mz] = e2c(camera.position.x, camera.position.z);
+      const fwd = new THREE.Vector3(); camera.getWorldDirection(fwd);
+      const angC = Math.atan2(fwd.x, -fwd.z);
+      g.save(); g.translate(mx, mz); g.rotate(angC);
+      g.fillStyle = "rgba(255,59,48,.16)";
+      g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, 46, -Math.PI/2 - 0.55, -Math.PI/2 + 0.55); g.closePath(); g.fill();
+      g.fillStyle = "#ff3b30";
+      g.beginPath(); g.moveTo(0, -11); g.lineTo(7, 7); g.lineTo(0, 3); g.lineTo(-7, 7); g.closePath(); g.fill();
+      g.restore();
+    }
+    function evPos(ev) {
+      const r = editCv.getBoundingClientRect();
+      return [ (ev.clientX - r.left) * (editCv.width / r.width), (ev.clientY - r.top) * (editCv.height / r.height) ];
+    }
+    function hitIdx(cx, cz) {
+      // 표시 노드(겹침 해소 후 위치) 기준 — 개념 노드가 위에 그려지므로 역순 탐색
+      for (let k = eNodes.length - 1; k >= 0; k--) {
+        const n = eNodes[k];
+        if (Math.hypot(cx - n.dx, cz - n.dz) < n.r + 5) return n.i;
+      }
+      return -1;
+    }
+    let panLast = null;   // 빈 곳 드래그 = 팬(줌인 상태에서 지도 이동)
+    editCv.addEventListener("pointerdown", ev => {
+      const [cx, cz] = evPos(ev);
+      dragIdx = hitIdx(cx, cz); dragMovedE = false;
+      panLast = dragIdx < 0 ? [cx, cz] : null;
+      editCv.setPointerCapture(ev.pointerId);
+      drawEditor();
+    });
+    editCv.addEventListener("pointermove", ev => {
+      const [cx, cz] = evPos(ev);
+      if (dragIdx >= 0) {                       // 노드 드래그 = 이동
+        dragMovedE = true;
+        let [wx, wz] = c2e(cx, cz);
+        wx = Math.min(Math.max(wx, bounds.min.x + 0.1), bounds.max.x - 0.1);
+        wz = Math.min(Math.max(wz, bounds.min.z + 0.1), bounds.max.z - 0.1);
+        editList[dragIdx].x = wx; editList[dragIdx].z = wz;
+        drawEditor();
+      } else if (panLast) {                     // 빈 곳 드래그 = 팬
+        const ddx = cx - panLast[0], ddz = cz - panLast[1];
+        if (Math.hypot(ddx, ddz) > 2) dragMovedE = true;
+        eOx += ddx; eOz += ddz; panLast = [cx, cz];
+        drawEditor();
+      }
+    });
+    editCv.addEventListener("pointerup", ev => {
+      if (dragIdx >= 0 && dragMovedE) {
+        const h = editList[dragIdx];
+        h.y = snapY(h.x, h.z);            // 표면 스냅 — 그 자리 가구 위 높이로
+        setStatusE(`#${dragIdx + 1} 이동 → 표면 높이 ${h.y.toFixed(2)}m 스냅`);
+      } else if (dragIdx < 0 && !dragMovedE) {
+        // 빈 곳 클릭 = 추가
+        const [cx, cz] = evPos(ev);
+        let [wx, wz] = c2e(cx, cz);
+        if (wx > bounds.min.x && wx < bounds.max.x && wz > bounds.min.z && wz < bounds.max.z) {
+          const nm = ($("newName").value || "기억 지점").trim();
+          editList.push({ label: nm, name: nm, x: wx, y: snapY(wx, wz), z: wz });
+          setStatusE(`+ "${nm}" 추가 (${editList.length}개)`);
+        }
+      }
+      dragIdx = -1; panLast = null; drawEditor();
+    });
+    editCv.addEventListener("dblclick", ev => {
+      const [cx, cz] = evPos(ev);
+      const i = hitIdx(cx, cz);
+      if (i >= 0) { const nm = furnKO(editList[i].label); editList.splice(i, 1); setStatusE(`− "${nm}" 삭제`); drawEditor(); }
+    });
+    function setStatusE(t) { setStatus("✎ " + t); }
+    // 저장 = localStorage 오버라이드(스캐너 JSON과 동일 형식) → 리로드로 동선 재구성
+    function editJSON() {
+      return { source: "memory-walk manual edit", glb: ROOM_GLB,
+        hotspots: editList.map((h, i) => ({ slot: i + 1, object: h.name || h.label, detectedClass: h.label,
+          confidence: 1, markerPosition: [ +h.x.toFixed(3), +h.y.toFixed(3), +h.z.toFixed(3) ],
+          posMethod: "manual-edit", entityId: h.entId || null })) };
+    }
+    $("editSave").onclick = () => {
+      try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(editJSON())); } catch {}
+      location.reload();
+    };
+    $("editExport").onclick = () => {
+      const blob = new Blob([JSON.stringify(editJSON(), null, 2)], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+      a.download = (ROOM_GLB.split("/").pop() || "room").replace(/\.glb$/i, "") + "-hotspots-edited.json";
+      a.click(); URL.revokeObjectURL(a.href);
+    };
+    $("editReset").onclick = () => {
+      try { localStorage.removeItem(OVERRIDE_KEY); } catch {}
+      location.reload();
+    };
+    $("editClose").onclick = () => $("editModal").classList.remove("open");
+    $("editModal").addEventListener("click", e => { if (e.target === $("editModal")) $("editModal").classList.remove("open"); });
+
+    // ➕ 추가 모드: 버튼을 켠 뒤 화면에서 사물을 클릭하면 "그 표면 지점"에 핫스팟 생성.
+    let addMode = false;
+    $("addBtn").onclick = () => {
+      addMode = !addMode;
+      $("addBtn").style.borderColor = addMode ? "var(--gold)" : "";
+      $("addBtn").style.color = addMode ? "var(--gold)" : "";
+      setStatus(addMode ? "➕ <b>화면에서 사물을 클릭</b>하면 그 자리에 핫스팟이 생깁니다 (Esc=취소)"
+                        : "추가 모드 해제");
+    };
+    // ✥ 이동 모드: 선택한 핫스팟을 화면에서 클릭한 표면 자리로 옮긴다.
+    let moveMode = false;
+    $("moveBtn").onclick = () => {
+      if (!moveMode && activeIdx < 0) { setStatus("먼저 이동할 핫스팟을 선택하세요(마커·목록·점)"); return; }
+      moveMode = !moveMode;
+      if (moveMode) { addMode = false; $("addBtn").style.borderColor = ""; $("addBtn").style.color = ""; }
+      $("moveBtn").style.borderColor = moveMode ? "var(--gold)" : "";
+      $("moveBtn").style.color = moveMode ? "var(--gold)" : "";
+      setStatus(moveMode ? `✥ <b>#${route[activeIdx].number} ${furnKO(route[activeIdx].label)}</b>를 둘 자리를 화면에서 클릭 (Esc=취소)`
+                         : "이동 모드 해제");
+    };
+    addEventListener("keydown", e => {
+      if (e.key === "Delete" && activeIdx >= 0 && !$("editModal").classList.contains("open")) {
+        deleteHotspot(activeIdx); return;
+      }
+      if (e.key !== "Escape") return;
+      if (addMode) $("addBtn").onclick();
+      if (moveMode) $("moveBtn").onclick();
+    });
+
+    // ↶ 되돌리기 — 이동·추가·삭제·순서변경 직전 상태를 쌓아두고 마지막 변경을 취소.
+    const undoStack = [];
+    function pushUndo() {
+      undoStack.push(route.map(h => ({ label: h.label, name: h.name, entity: h.entity,
+        pos: h.pos.clone(), eye: h.eye.clone() })));
+      if (undoStack.length > 20) undoStack.shift();
+    }
+    function undoLast() {
+      const snap = undoStack.pop();
+      if (!snap) { setStatus("되돌릴 변경이 없습니다"); return; }
+      route.forEach(h => { if (h.marker) scene.remove(h.marker); });
+      route = snap.map((s, i) => ({ pos: s.pos.clone(), eye: s.eye.clone(), label: s.label,
+        name: s.name, entity: s.entity, number: i + 1, marker: null }));
+      activeIdx = -1; $("card").style.display = "none";
+      renumberRoute("↶ 마지막 변경을 되돌렸습니다");
+    }
+    $("undoBtn").onclick = undoLast;
+    // 핫스팟 삭제 — 목록의 ✕, 또는 선택 후 Delete 키.
+    function deleteHotspot(i) {
+      if (i < 0 || i >= route.length) return;
+      pushUndo();
+      const h = route[i];
+      if (h.marker) scene.remove(h.marker);
+      route.splice(i, 1);
+      if (activeIdx === i) { activeIdx = -1; $("card").style.display = "none"; }
+      else if (activeIdx > i) activeIdx--;
+      renumberRoute(`− <b>${furnKO(h.label)}</b> 삭제 (${route.length}개) — ↶로 되돌리기 가능`);
+    }
+    // 지금 route 전체를 localStorage 오버라이드로 저장(스캐너 JSON과 동일 형식) — 새로고침에도 유지.
+    function saveOverrideFromRoute() {
+      const j = { source: "memory-walk manual edit", glb: ROOM_GLB,
+        hotspots: route.map((h, i) => ({ slot: i + 1, object: h.name || h.label, detectedClass: h.label,
+          confidence: 1, markerPosition: [ +h.pos.x.toFixed(3), +h.pos.y.toFixed(3), +h.pos.z.toFixed(3) ],
+          posMethod: "manual-edit", entityId: h.entity ? h.entity.id : null })) };
+      try { localStorage.setItem(OVERRIDE_KEY, JSON.stringify(j)); } catch {}
+    }
+    // 인라인 이름 입력 — prompt()와 달리 페이지를 멈추지 않음. Enter=추가, Esc=취소.
+    let _addBox = null;
+    function showAddNameBox(point) {
+      if (_addBox) _addBox.remove();
+      const box = document.createElement("div");
+      box.className = "panel";
+      box.style.cssText = "position:fixed;left:50%;bottom:84px;transform:translateX(-50%);z-index:30;" +
+        "display:flex;gap:8px;align-items:center;padding:10px 12px;";
+      const inp = document.createElement("input");
+      inp.value = "기억 지점";
+      inp.style.cssText = "width:200px;height:34px;border-radius:9px;border:1px solid var(--line);" +
+        "background:rgba(255,255,255,.06);color:var(--text);font:inherit;font-size:13px;padding:0 10px;";
+      const ok = document.createElement("button");
+      ok.textContent = "추가"; ok.className = "btn";
+      ok.style.cssText = "border:none;border-radius:9px;background:linear-gradient(180deg,var(--accent),var(--accent2));" +
+        "color:#091210;font:inherit;font-weight:800;font-size:13px;padding:8px 14px;cursor:pointer;";
+      const cancel = () => { box.remove(); _addBox = null; };
+      const confirm = () => { const nm = inp.value.trim(); if (nm) addHotspotAt(point, nm); cancel(); };
+      ok.onclick = confirm;
+      inp.onkeydown = e => { e.stopPropagation(); if (e.key === "Enter") confirm(); if (e.key === "Escape") cancel(); };
+      box.append(inp, ok);
+      document.body.appendChild(box);
+      _addBox = box;
+      inp.focus(); inp.select();
+    }
+    function addHotspotAt(point, nm) {
+      pushUndo();   // ↶ 되돌리기용 스냅샷
+      const h = { pos: point.clone(), label: nm, name: nm, entity: null, number: route.length + 1,
+        eye: point.clone().setY(Math.min(point.y + 0.18, bounds.max.y - 0.12)) };
+      route.push(h);
+      const sp = numberSprite(h.number, false);
+      sp.position.copy(h.eye); sp.renderOrder = 999; sp.userData.idx = route.length - 1;
+      scene.add(sp); h.marker = sp;
+      renderDots(activeIdx); $("listCount").textContent = route.length; buildObjectList();
+      saveOverrideFromRoute();
+      setStatus(`+ <b>${nm}</b> 추가(${route.length}번) — 이 브라우저에 저장됨. 평면도에서 위치 미세조정 가능`);
+    }
+
+    // 마커 클릭 → 그 지점 / 추가 모드면 클릭한 표면에 핫스팟 생성
     renderer.domElement.addEventListener("pointerup", (ev) => {
       if (dragMoved) return;
       const r = renderer.domElement.getBoundingClientRect();
       const v = new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
       const rc = new THREE.Raycaster(); rc.setFromCamera(v, camera);
+      if (moveMode && activeIdx >= 0) {
+        const meshes = []; scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
+        const hit = rc.intersectObjects(meshes, false)[0];
+        if (hit) {
+          const h = route[activeIdx];
+          pushUndo();   // ↶ 되돌리기용 스냅샷
+          h.pos.copy(hit.point);
+          h.eye.set(hit.point.x, Math.min(hit.point.y + 0.18, bounds.max.y - 0.12), hit.point.z);
+          h.marker.position.copy(h.eye);
+          if (spawnPos) buildRouteLine(spawnPos);
+          buildRelations(); saveOverrideFromRoute();
+          setStatus(`✥ #${h.number} 이동 완료 — 저장됨`);
+        }
+        $("moveBtn").onclick();   // 한 번 찍으면 모드 해제
+        return;
+      }
+      if (addMode) {
+        const meshes = []; scene.traverse(c => { if (c.isMesh && c.visible) meshes.push(c); });
+        const hit = rc.intersectObjects(meshes, false)[0];
+        if (hit) showAddNameBox(hit.point.clone());   // 비차단 인라인 입력(브라우저 prompt 금지 — 페이지를 멈춤)
+        $("addBtn").onclick();   // 한 번 찍으면 모드 해제
+        return;
+      }
       const hit = rc.intersectObjects(route.map(h=>h.marker), false)[0];
       if (hit) goTo(hit.object.userData.idx);
     });
@@ -591,7 +1267,9 @@
       const ceilMat=new THREE.MeshStandardMaterial({color:0xf3f0ea,roughness:1,side:THREE.DoubleSide});
       const shell=new THREE.Group();
       const fl=new THREE.Mesh(new THREE.PlaneGeometry(W,D),floorMat);fl.rotation.x=-Math.PI/2;fl.position.set(cx,fy,cz);fl.receiveShadow=true;shell.add(fl);
-      const ce=new THREE.Mesh(new THREE.PlaneGeometry(W,D),ceilMat);ce.rotation.x=Math.PI/2;ce.position.set(cx,fy+H,cz);shell.add(ce);
+      if (!(THEME && THEME.bg)) {   // 배경 사진 테마면 천장 생략(하늘로 열림)
+        const ce=new THREE.Mesh(new THREE.PlaneGeometry(W,D),ceilMat);ce.rotation.x=Math.PI/2;ce.position.set(cx,fy+H,cz);shell.add(ce);
+      }
       const SILL=0.9,HEADB=2.0,JAMB=0.6,WT=0.08;
       const wb=(sx,sy,sz_,px,py,pz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz_),wallMat);m.position.set(px,py,pz);m.castShadow=true;m.receiveShadow=true;shell.add(m);};
       const wall=(len,px,pz,horiz)=>{ if(horiz){wb(len,SILL,WT,px,fy+SILL/2,pz);wb(len,H-HEADB,WT,px,fy+(HEADB+H)/2,pz);wb(JAMB,HEADB-SILL,WT,px-len/2+JAMB/2,fy+(SILL+HEADB)/2,pz);wb(JAMB,HEADB-SILL,WT,px+len/2-JAMB/2,fy+(SILL+HEADB)/2,pz);}
@@ -638,7 +1316,7 @@
       if(camTween){ const k=Math.min(1,(now-camTween.t0)/(camTween.dur||1)); const e=k<0.5?2*k*k:1-Math.pow(-2*k+2,2)/2;
         camera.position.lerpVectors(camTween.fromPos,camTween.toPos,e); controls.target.lerpVectors(camTween.fromTgt,camTween.toTgt,e);
         if(k>=1)camTween=null; }
-      walk(dt); controls.update(); renderer.render(scene,camera); requestAnimationFrame(tick);
+      walk(dt); controls.update(); renderer.render(scene,camera); drawMini(); requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
     addEventListener("resize",()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
