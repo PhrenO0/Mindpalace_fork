@@ -329,27 +329,59 @@
       t.mapping = THREE.EquirectangularReflectionMapping;
       scene.environment = pmrem.fromEquirectangular(t).texture; scene.background = t;
     }, undefined, useNeutral); else useNeutral();
-    // 랜드마크 배경 사진 — 천장 없는 방이 "그 풍경 속"에 있도록 화면 배경을 실제 랜드마크 정면 샷으로.
-    // 랜드마크 배경 — 방을 큰 sphere로 둘러싸 안쪽에 정면 샷을 매핑.
-    //   위(하늘)·창밖·천장 트인 곳 어디서든 랜드마크 풍경이 보임 = 방↔랜드마크 직접 결합.
-    //   평면 사진이라 극(위·아래)은 늘어남 — 적도(중심) 방향에서 가장 자연스럽게 보이게 회전.
+    // 랜드마크 배경 — "빌보드 + 하늘 그라데이션" 방식.
+    //   원근 사진 한 장을 구 전체에 감싸면 늘어남·중복이 생기므로(평면≠파노라마),
+    //   ① 하늘은 색 그라데이션 돔(왜곡 없음) ② 랜드마크 사진은 건물 띠만 알파 페이드해
+    //   실제 방위 방향 한 곳에 "창밖 풍경"처럼 평면(빌보드)으로 세운다 = 방↔랜드마크 직접 결합.
     if (THEME && THEME.bg && !ENV) {
+      // ── ① 하늘 그라데이션 돔 ── 천정(위) → 지평선(아래)으로 자연스러운 색 변화
+      const skyTop = new THREE.Color(THEME.sky != null ? THEME.sky : 0x8db4d8);
+      const skyBot = new THREE.Color(THEME.hemi != null ? THEME.hemi : 0xdfe9f2);
+      const gc = document.createElement('canvas'); gc.width = 16; gc.height = 256;
+      const gx = gc.getContext('2d');
+      const grad = gx.createLinearGradient(0, 0, 0, 256);
+      grad.addColorStop(0.00, '#' + skyTop.getHexString());                          // 천정
+      grad.addColorStop(0.60, '#' + skyTop.clone().lerp(skyBot, 0.6).getHexString());// 중간
+      grad.addColorStop(1.00, '#' + skyBot.getHexString());                          // 지평선
+      gx.fillStyle = grad; gx.fillRect(0, 0, 16, 256);
+      const gtex = new THREE.CanvasTexture(gc); gtex.colorSpace = THREE.SRGBColorSpace;
+      scene.background = gtex;
+      const SKY_R = 95, segW = LITE ? 24 : 40, segH = LITE ? 16 : 24;
+      const dome = new THREE.Mesh(
+        new THREE.SphereGeometry(SKY_R, segW, segH),
+        new THREE.MeshBasicMaterial({ map: gtex, side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false }));
+      dome.renderOrder = -2; dome.frustumCulled = false; scene.add(dome);
+      window.__sky = dome;                              // 카메라에 붙어 따라다님(parallax 없는 하늘)
+
+      // ── ② 랜드마크 빌보드 ── 정면 사진을 건물 띠만 남기고(상하 알파 페이드) 한 방향에 세움
       new THREE.TextureLoader().load(THEME.bg, t => {
-        t.colorSpace = THREE.SRGBColorSpace;
-        // 가로 2배 wrap → 360° 둘레에 사진이 두 번 반복(이음새가 멀리 가서 덜 거슬림)
-        t.wrapS = THREE.RepeatWrapping; t.repeat.x = 2;
-        scene.background = t;
-        // 큰 sphere — 반지름 80m, 안쪽으로 매핑(BackSide). 라이트 모드면 한 단계 가벼운 메쉬.
-        const SKY_R = 80;
-        const segW = LITE ? 32 : 48, segH = LITE ? 16 : 24;
-        const skyGeo = new THREE.SphereGeometry(SKY_R, segW, segH);
-        const skyMat = new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide,
-          depthWrite: false, fog: false, toneMapped: false });
-        const sky = new THREE.Mesh(skyGeo, skyMat);
-        sky.renderOrder = -1;                          // 다른 메쉬보다 먼저(뒤에) 그림
-        sky.frustumCulled = false;
-        scene.add(sky);
-        window.__sky = sky;                            // 사용자가 방위 맞추고 싶을 때 디버그용
+        const img = t.image, iw = img.width, ih = img.height;
+        const maxW = LITE ? 1024 : 2048;                // 저사양 GPU VRAM 보호용 다운스케일
+        const sc = Math.min(1, maxW / iw);
+        const bc = document.createElement('canvas');
+        bc.width = Math.max(1, Math.round(iw * sc)); bc.height = Math.max(1, Math.round(ih * sc));
+        const bx = bc.getContext('2d');
+        bx.drawImage(img, 0, 0, bc.width, bc.height);
+        // 상하 알파 페이드: 위(사진 속 하늘)·아래(땅)를 투명 처리 → 누끼 없이 건물 띠만 떠 보임
+        bx.globalCompositeOperation = 'destination-in';
+        const ag = bx.createLinearGradient(0, 0, 0, bc.height);
+        ag.addColorStop(0.00, 'rgba(0,0,0,0)');  // 맨 위 = 투명(하늘로 녹아듦)
+        ag.addColorStop(0.20, 'rgba(0,0,0,1)');  // 건물 시작
+        ag.addColorStop(0.82, 'rgba(0,0,0,1)');  // 건물 끝
+        ag.addColorStop(1.00, 'rgba(0,0,0,0)');  // 맨 아래(땅) = 투명
+        bx.fillStyle = ag; bx.fillRect(0, 0, bc.width, bc.height);
+        const btex = new THREE.CanvasTexture(bc); btex.colorSpace = THREE.SRGBColorSpace;
+        btex.anisotropy = (typeof _maxAniso !== 'undefined') ? _maxAniso : 1;
+        const aspect = iw / ih, BW = 72, BH = BW / aspect;
+        const bill = new THREE.Mesh(
+          new THREE.PlaneGeometry(BW, BH),
+          new THREE.MeshBasicMaterial({ map: btex, transparent: true, depthWrite: false, fog: false, toneMapped: false }));
+        const DIR = (THEME.bearing != null ? THEME.bearing : 0) * Math.PI / 180; // 0 = 정면(-Z)
+        const DIST = 58;                                  // 방 밖 멀리 — 걸어가도 못 닿음
+        bill.position.set(Math.sin(DIR) * DIST, BH * 0.28, -Math.cos(DIR) * DIST);
+        bill.lookAt(0, BH * 0.28, 0);
+        bill.renderOrder = -1; bill.frustumCulled = false;
+        scene.add(bill); window.__bill = bill;
       }, undefined, () => {});
     }
     scene.add(new THREE.HemisphereLight(THEME ? THEME.hemi : 0xffffff, 0x444444, 0.4));  // 랜드마크 톤 조명
@@ -1368,7 +1400,7 @@
         camera.position.lerpVectors(camTween.fromPos,camTween.toPos,e); controls.target.lerpVectors(camTween.fromTgt,camTween.toTgt,e);
         if(k>=1)camTween=null; }
       walk(dt); controls.update();
-      // 배경 sphere를 카메라에 붙여둠 — 어디로 걸어가도 풍경이 같이 따라옴(parallax 없음).
+      // 하늘 그라데이션 돔만 카메라에 붙여둠(무한히 먼 하늘). 빌보드는 월드 고정 → 걸으면 시차로 멀게 느껴짐.
       if (window.__sky) window.__sky.position.copy(camera.position);
       renderer.render(scene,camera); drawMini(); requestAnimationFrame(tick);
     }
